@@ -4,17 +4,22 @@ import { FormEvent, useState } from "react";
 
 import Link from "next/link";
 
-import { FiArrowRight, FiCheck } from "react-icons/fi";
+import { FiArrowRight, FiCheck, FiLock, FiTruck } from "react-icons/fi";
 
 import { useCart } from "@/features/cart/context/CartContext";
 
-import { createOrder } from "@/features/orders/api/createOrder";
+import {
+  createOrder,
+  type CreateOrderResponse,
+} from "@/features/orders/api/createOrder";
+import { initiateMpesaPayment } from "@/features/orders/api/initiateMpesaPayment";
 
 export default function CheckoutForm() {
   const {
     items,
     itemCount,
     subtotal,
+    clearCart,
   } = useCart();
 
   const [paymentMethod, setPaymentMethod] =
@@ -28,6 +33,9 @@ export default function CheckoutForm() {
 
   const [formError, setFormError] =
     useState("");
+
+  const [createdOrder, setCreatedOrder] =
+    useState<CreateOrderResponse | null>(null);
 
   const [form, setForm] = useState({
     firstName: "",
@@ -74,8 +82,10 @@ export default function CheckoutForm() {
 
     setSubmitting(true);
 
+    let orderWasCreated = Boolean(createdOrder);
+
     try {
-      await createOrder({
+      const order = createdOrder || await createOrder({
         firstName: form.firstName,
         lastName: form.lastName,
         phone: form.phone,
@@ -90,15 +100,24 @@ export default function CheckoutForm() {
         items,
       });
 
+      setCreatedOrder(order);
+      orderWasCreated = true;
+
+      if (paymentMethod === "mpesa") {
+        await initiateMpesaPayment(order.payment_token, form.phone);
+      }
+
       setSuccess(true);
+      clearCart();
     } catch (error) {
       console.error(
         "Checkout error:",
         error
       );
 
-      setFormError(
-        "We couldn't create your order. Please check your details and try again."
+      setFormError(orderWasCreated
+        ? "Your order was created, but we could not send the M-Pesa prompt. Check your phone number and retry payment."
+        : "We couldn’t create your order. Please check your details and try again."
       );
     } finally {
       setSubmitting(false);
@@ -114,20 +133,24 @@ export default function CheckoutForm() {
         </div>
 
         <span className="kc-eyebrow">
-          Order received
+          {paymentMethod === "mpesa" ? "Payment prompt sent" : "Order received"}
         </span>
 
         <h2>
-          You're almost there.
+          {paymentMethod === "mpesa" ? "One small step left." : "You&apos;re all set."}
         </h2>
 
         <p>
-          Your checkout details have been
-          captured successfully. The next
-          step will be connecting this
-          order to KimCustoms' backend and
-          M-Pesa payment system.
+          {paymentMethod === "mpesa"
+            ? "Check your phone and enter your M-Pesa PIN to complete payment."
+            : "Your order has been received. We will contact you with the next payment steps."}
         </p>
+
+        {createdOrder && (
+          <p className="kc-order-reference">
+            Order reference <strong>{createdOrder.order_number}</strong>
+          </p>
+        )}
 
         <Link
           href="/"
@@ -152,6 +175,11 @@ export default function CheckoutForm() {
       ================================= */}
 
       <div className="kc-checkout-main">
+
+        <div className="kc-checkout-reassurance" aria-label="Checkout benefits">
+          <span><FiLock size={15} /> Secure payment</span>
+          <span><FiTruck size={16} /> Crafted with care in Kenya</span>
+        </div>
 
         {/* CUSTOMER DETAILS */}
 
@@ -225,7 +253,7 @@ export default function CheckoutForm() {
               />
 
               <span>
-                We'll use this number for
+                We&apos;ll use this number for
                 order updates and payment.
               </span>
             </div>
@@ -454,22 +482,13 @@ export default function CheckoutForm() {
             {/* CARD */}
 
             <label
-              className={`kc-payment-option ${
-                paymentMethod === "card"
-                  ? "active"
-                  : ""
-              }`}
+              className="kc-payment-option is-unavailable"
             >
               <input
                 type="radio"
                 name="payment"
                 value="card"
-                checked={
-                  paymentMethod === "card"
-                }
-                onChange={() =>
-                  setPaymentMethod("card")
-                }
+                disabled
               />
 
               <div className="kc-payment-icon kc-payment-icon-card">
@@ -484,9 +503,7 @@ export default function CheckoutForm() {
                 </strong>
 
                 <span>
-                  Pay securely with Visa,
-                  Mastercard or other supported
-                  cards.
+                  Card payments will be available soon.
                 </span>
 
                 <div className="kc-card-brands">
@@ -505,7 +522,7 @@ export default function CheckoutForm() {
               </div>
 
               <span className="kc-payment-secure">
-                Secure
+                Coming soon
               </span>
             </label>
 
@@ -571,8 +588,10 @@ export default function CheckoutForm() {
           disabled={submitting}
         >
           {submitting
-            ? "Preparing your order..."
-            : "Place order"}
+            ? "Creating your secure checkout..."
+            : paymentMethod === "mpesa"
+              ? "Send M-Pesa prompt"
+              : "Place order"}
 
           {!submitting && (
             <FiArrowRight size={17} />
@@ -581,7 +600,7 @@ export default function CheckoutForm() {
 
         <p className="kc-checkout-terms">
           By placing your order, you agree
-          to KimCustoms' terms and understand
+          to KimCustoms&apos; terms and understand
           that personalized products may not
           be eligible for return once
           production has started.

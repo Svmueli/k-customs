@@ -5,6 +5,7 @@ from dotenv import load_dotenv
 load_dotenv()
 
 from pathlib import Path
+from django.core.exceptions import ImproperlyConfigured
 
 # Build paths inside the project like this: BASE_DIR / 'subdir'.
 BASE_DIR = Path(__file__).resolve().parent.parent
@@ -25,7 +26,16 @@ DEBUG = os.getenv(
     "False",
 ).lower() == "true"
 
-ALLOWED_HOSTS = []
+if not DEBUG and SECRET_KEY == "unsafe-development-key":
+    raise ImproperlyConfigured(
+        "SECRET_KEY must be set when DEBUG is False."
+    )
+
+ALLOWED_HOSTS = [
+    host.strip()
+    for host in os.getenv("ALLOWED_HOSTS", "localhost,127.0.0.1").split(",")
+    if host.strip()
+]
 
 
 # Application definition
@@ -139,13 +149,73 @@ MEDIA_ROOT = BASE_DIR / "media"
 
 MAILERS = {
     'default': {
-        'BACKEND': 'django.core.mail.backends.console.EmailBackend',
+        'BACKEND': os.getenv(
+            "EMAIL_BACKEND",
+            "django.core.mail.backends.smtp.EmailBackend",
+        ),
     },
 }
 
 CORS_ALLOWED_ORIGINS = [
-    "http://localhost:3000",
-    "http://127.0.0.1:3000",
+    origin.strip()
+    for origin in os.getenv(
+        "CORS_ALLOWED_ORIGINS",
+        "http://localhost:3000,http://127.0.0.1:3000",
+    ).split(",")
+    if origin.strip()
 ]
 
-CORS_ALLOW_ALL_ORIGINS = True
+# Keep the browser API boundary explicit.  A permissive CORS policy would let
+# any website drive checkout and spend a payment-initiation token it obtains.
+CORS_ALLOW_ALL_ORIGINS = False
+
+if not DEBUG:
+    # These defaults presume production traffic is HTTPS. Set HSTS only after
+    # the public domain is known to be HTTPS-only; it is deliberately
+    # configurable for staged rollouts.
+    SECURE_SSL_REDIRECT = os.getenv("SECURE_SSL_REDIRECT", "true").lower() == "true"
+    SESSION_COOKIE_SECURE = True
+    CSRF_COOKIE_SECURE = True
+    SECURE_CONTENT_TYPE_NOSNIFF = True
+    SECURE_REFERRER_POLICY = "same-origin"
+    X_FRAME_OPTIONS = "DENY"
+    SECURE_HSTS_SECONDS = int(os.getenv("SECURE_HSTS_SECONDS", "31536000"))
+    SECURE_HSTS_INCLUDE_SUBDOMAINS = True
+    SECURE_HSTS_PRELOAD = True
+    if os.getenv("SECURE_PROXY_SSL_HEADER", "false").lower() == "true":
+        SECURE_PROXY_SSL_HEADER = ("HTTP_X_FORWARDED_PROTO", "https")
+
+MPESA_CALLBACK_MAX_BYTES = int(os.getenv("MPESA_CALLBACK_MAX_BYTES", "65536"))
+MPESA_INITIATION_TOKEN_TTL_SECONDS = int(
+    os.getenv("MPESA_INITIATION_TOKEN_TTL_SECONDS", "1800")
+)
+
+REST_FRAMEWORK = {
+    "DEFAULT_THROTTLE_RATES": {
+        "mpesa_stk_push": os.getenv("MPESA_STK_PUSH_RATE", "5/min"),
+    },
+}
+
+
+# M-Pesa Daraja. Keep credentials in the environment; this project deliberately
+# provides no defaults so a missing configuration cannot send a real request.
+MPESA_DARAJA = {
+    "consumer_key": os.getenv("MPESA_CONSUMER_KEY", ""),
+    "consumer_secret": os.getenv("MPESA_CONSUMER_SECRET", ""),
+    "shortcode": os.getenv("MPESA_SHORTCODE", ""),
+    "passkey": os.getenv("MPESA_PASSKEY", ""),
+    "callback_url": os.getenv("MPESA_CALLBACK_URL", ""),
+    "oauth_url": os.getenv(
+        "MPESA_OAUTH_URL",
+        "https://sandbox.safaricom.co.ke/oauth/v1/generate?grant_type=client_credentials",
+    ),
+    "stk_push_url": os.getenv(
+        "MPESA_STK_PUSH_URL",
+        "https://sandbox.safaricom.co.ke/mpesa/stkpush/v1/processrequest",
+    ),
+    "transaction_type": os.getenv(
+        "MPESA_TRANSACTION_TYPE",
+        "CustomerPayBillOnline",
+    ),
+    "timeout_seconds": int(os.getenv("MPESA_TIMEOUT_SECONDS", "15")),
+}

@@ -1,11 +1,15 @@
+from datetime import timedelta
 from decimal import Decimal
 from uuid import uuid4
 
 from django.db import transaction
+from django.conf import settings
+from django.utils import timezone
 from rest_framework import serializers
 
 from customers.models import Customer
 from payments.models import Payment
+from payments.security import hash_payment_token, new_payment_token
 from products.models import Product
 
 from .models import Customization, Order, OrderItem
@@ -22,6 +26,7 @@ class OrderItemSerializer(serializers.Serializer):
 
 
 class OrderSerializer(serializers.ModelSerializer):
+    payment_token = serializers.CharField(read_only=True)
     first_name = serializers.CharField(write_only=True)
     last_name = serializers.CharField(write_only=True)
     email = serializers.EmailField(write_only=True)
@@ -56,6 +61,7 @@ class OrderSerializer(serializers.ModelSerializer):
             "notes",
 
             "payment_method",
+            "payment_token",
             "created_at",
         )
 
@@ -268,11 +274,20 @@ class OrderSerializer(serializers.ModelSerializer):
         # PAYMENT
         # -----------------------------
 
+        payment_token = new_payment_token()
         Payment.objects.create(
             order=order,
             method=payment_method,
             amount=order.total,
             status=Payment.Status.PENDING,
+            initiation_token_hash=hash_payment_token(payment_token),
+            initiation_token_expires_at=(
+                timezone.now()
+                + timedelta(seconds=settings.MPESA_INITIATION_TOKEN_TTL_SECONDS)
+            ),
         )
+        # Returned once, only to the checkout caller. The database retains
+        # its SHA-256 hash, never the bearer token itself.
+        order.payment_token = payment_token
 
         return order

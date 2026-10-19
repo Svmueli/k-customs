@@ -101,12 +101,12 @@ export function CartProvider({
    * after the browser hydrates.
    */
   useEffect(() => {
-    const storedCart =
-      getStoredCart();
+    const hydrationTimer = window.setTimeout(() => {
+      setItems(getStoredCart());
+      setHydrated(true);
+    }, 0);
 
-    setItems(storedCart);
-
-    setHydrated(true);
+    return () => window.clearTimeout(hydrationTimer);
   }, []);
 
   /*

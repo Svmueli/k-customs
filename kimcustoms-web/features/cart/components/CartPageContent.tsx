@@ -313,7 +313,7 @@ export default function CartPageContent() {
           </Link>
 
           <p className="kc-summary-note">
-            You'll review your delivery
+            You&apos;ll review your delivery
             details and payment method
             before placing the order.
           </p>

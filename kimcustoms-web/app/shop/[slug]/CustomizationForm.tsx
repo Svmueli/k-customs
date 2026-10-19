@@ -156,7 +156,7 @@ export default function CustomizationForm({
             </h2>
 
             <p>
-              Tell us what you'd like us
+              Tell us what you&apos;d like us
               to create.
             </p>
           </div>

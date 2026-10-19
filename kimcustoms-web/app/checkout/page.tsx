@@ -15,12 +15,12 @@ export default function CheckoutPage() {
               </span>
 
               <h1>
-                Let's make it yours.
+                Let&apos;s make it yours.
               </h1>
 
               <p>
                 Enter your details below and
-                we'll prepare your personalized
+                we&apos;ll prepare your personalized
                 order.
               </p>
             </div>

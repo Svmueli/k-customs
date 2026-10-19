@@ -41,8 +41,8 @@ export default function ProductPage() {
             </h1>
 
             <p>
-              We couldn't find the keepsake
-              you're looking for.
+              We couldn&apos;t find the keepsake
+              you&apos;re looking for.
             </p>
 
             <Link
@@ -87,9 +87,9 @@ export default function ProductPage() {
 
               <div className="kc-product-main-image">
 
-                {product.image ? (
+                {product.primaryImage ? (
                   <img
-                    src={product.image}
+                    src={product.primaryImage}
                     alt={product.name}
                   />
                 ) : (

@@ -63,8 +63,8 @@ export default function OccasionGrid() {
           </h2>
 
           <p>
-            Whether you're celebrating love, family, achievement or memory,
-            start with the occasion and we'll help you find something
+            Whether you&apos;re celebrating love, family, achievement or memory,
+            start with the occasion and we&apos;ll help you find something
             meaningful.
           </p>
         </div>

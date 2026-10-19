@@ -32,6 +32,8 @@ export interface CreateOrderResponse {
   delivery_fee: string;
   total: string;
   created_at: string;
+  // Short-lived bearer token, retained only in checkout component memory.
+  payment_token: string;
 }
 
 export async function createOrder(
